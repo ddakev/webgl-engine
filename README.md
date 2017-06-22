@@ -5,6 +5,6 @@ To run the current scene set-up, you need to have node.js installed. If you don'
 
 From the command line, run the following command with the directory path where you saved the project:
 
-`node _path_/webgl-engine/server`
+`$> node _path_/webgl-engine/server`
 
 Then, open a browser and navigate to [http://localhost:8080/](http://localhost:8080/)
