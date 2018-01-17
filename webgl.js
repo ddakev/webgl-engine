@@ -1,34 +1,210 @@
+var paused = 0;
+var gravityMode = false;
+var gheld = false;
+var gravity = new vec3(0, 0, -10);
+
 var canvas;
 var gl;
+var gameLoopRequest;
+var ext;
 var WIDTH;
 var HEIGHT;
 var url = "http://localhost:8080";
+var keysPressed = {};
+var lastUpdate = 0;
+var dt = 0;
 
-var resources = {
+if (typeof KeyEvent == "undefined") {
+    var KeyEvent = {
+        DOM_VK_CANCEL: 3,
+        DOM_VK_HELP: 6,
+        DOM_VK_BACK_SPACE: 8,
+        DOM_VK_TAB: 9,
+        DOM_VK_CLEAR: 12,
+        DOM_VK_RETURN: 13,
+        DOM_VK_ENTER: 14,
+        DOM_VK_SHIFT: 16,
+        DOM_VK_CONTROL: 17,
+        DOM_VK_ALT: 18,
+        DOM_VK_PAUSE: 19,
+        DOM_VK_CAPS_LOCK: 20,
+        DOM_VK_ESCAPE: 27,
+        DOM_VK_SPACE: 32,
+        DOM_VK_PAGE_UP: 33,
+        DOM_VK_PAGE_DOWN: 34,
+        DOM_VK_END: 35,
+        DOM_VK_HOME: 36,
+        DOM_VK_LEFT: 37,
+        DOM_VK_UP: 38,
+        DOM_VK_RIGHT: 39,
+        DOM_VK_DOWN: 40,
+        DOM_VK_PRINTSCREEN: 44,
+        DOM_VK_INSERT: 45,
+        DOM_VK_DELETE: 46,
+        DOM_VK_0: 48,
+        DOM_VK_1: 49,
+        DOM_VK_2: 50,
+        DOM_VK_3: 51,
+        DOM_VK_4: 52,
+        DOM_VK_5: 53,
+        DOM_VK_6: 54,
+        DOM_VK_7: 55,
+        DOM_VK_8: 56,
+        DOM_VK_9: 57,
+        DOM_VK_SEMICOLON: 59,
+        DOM_VK_EQUALS: 61,
+        DOM_VK_A: 65,
+        DOM_VK_B: 66,
+        DOM_VK_C: 67,
+        DOM_VK_D: 68,
+        DOM_VK_E: 69,
+        DOM_VK_F: 70,
+        DOM_VK_G: 71,
+        DOM_VK_H: 72,
+        DOM_VK_I: 73,
+        DOM_VK_J: 74,
+        DOM_VK_K: 75,
+        DOM_VK_L: 76,
+        DOM_VK_M: 77,
+        DOM_VK_N: 78,
+        DOM_VK_O: 79,
+        DOM_VK_P: 80,
+        DOM_VK_Q: 81,
+        DOM_VK_R: 82,
+        DOM_VK_S: 83,
+        DOM_VK_T: 84,
+        DOM_VK_U: 85,
+        DOM_VK_V: 86,
+        DOM_VK_W: 87,
+        DOM_VK_X: 88,
+        DOM_VK_Y: 89,
+        DOM_VK_Z: 90,
+        DOM_VK_CONTEXT_MENU: 93,
+        DOM_VK_NUMPAD0: 96,
+        DOM_VK_NUMPAD1: 97,
+        DOM_VK_NUMPAD2: 98,
+        DOM_VK_NUMPAD3: 99,
+        DOM_VK_NUMPAD4: 100,
+        DOM_VK_NUMPAD5: 101,
+        DOM_VK_NUMPAD6: 102,
+        DOM_VK_NUMPAD7: 103,
+        DOM_VK_NUMPAD8: 104,
+        DOM_VK_NUMPAD9: 105,
+        DOM_VK_MULTIPLY: 106,
+        DOM_VK_ADD: 107,
+        DOM_VK_SEPARATOR: 108,
+        DOM_VK_SUBTRACT: 109,
+        DOM_VK_DECIMAL: 110,
+        DOM_VK_DIVIDE: 111,
+        DOM_VK_F1: 112,
+        DOM_VK_F2: 113,
+        DOM_VK_F3: 114,
+        DOM_VK_F4: 115,
+        DOM_VK_F5: 116,
+        DOM_VK_F6: 117,
+        DOM_VK_F7: 118,
+        DOM_VK_F8: 119,
+        DOM_VK_F9: 120,
+        DOM_VK_F10: 121,
+        DOM_VK_F11: 122,
+        DOM_VK_F12: 123,
+        DOM_VK_F13: 124,
+        DOM_VK_F14: 125,
+        DOM_VK_F15: 126,
+        DOM_VK_F16: 127,
+        DOM_VK_F17: 128,
+        DOM_VK_F18: 129,
+        DOM_VK_F19: 130,
+        DOM_VK_F20: 131,
+        DOM_VK_F21: 132,
+        DOM_VK_F22: 133,
+        DOM_VK_F23: 134,
+        DOM_VK_F24: 135,
+        DOM_VK_NUM_LOCK: 144,
+        DOM_VK_SCROLL_LOCK: 145,
+        DOM_VK_COMMA: 188,
+        DOM_VK_PERIOD: 190,
+        DOM_VK_SLASH: 191,
+        DOM_VK_BACK_QUOTE: 192,
+        DOM_VK_OPEN_BRACKET: 219,
+        DOM_VK_BACK_SLASH: 220,
+        DOM_VK_CLOSE_BRACKET: 221,
+        DOM_VK_QUOTE: 222,
+        DOM_VK_META: 224
+    };
+}
+
+const resources = {
     images: {
-        "earth.jpg": null
+        "earth.jpg": null,
+        "skybox.png": null,
+        "terrainHeight.png": null,
+        "terrainMoisture.png": null,
+        "terrainColor.png": null,
+        "sandDiffuse.png": null,
+        "sandNormal.png": null,
+        "grassDiffuse.png": null,
+        "grassNormal.png": null,
+        "forestDiffuse.png": null,
+        "forestNormal.png": null,
+        "snowDiffuse.png": null,
+        "snowNormal.png": null,
+        "dudv.png": null,
+        "waterNormal.png": null
     }
 };
 var programs = {
     texturedPhong: {
-        vertexSource: "/resources/shaders/texturedPhong/vertex.glsl",
-        fragmentSource: "/resources/shaders/texturedPhong/fragment.glsl"
+        vertexSource: "/shaders/texturedPhong/vertex.glsl",
+        fragmentSource: "/shaders/texturedPhong/fragment.glsl"
+    },
+    skybox: {
+        vertexSource: "/shaders/skybox/vertex.glsl",
+        fragmentSource: "/shaders/skybox/fragment.glsl"
+    },
+    terrain: {
+        vertexSource: "/shaders/terrain/vertex.glsl",
+        fragmentSource: "/shaders/terrain/fragment.glsl"
+    },
+    water: {
+        vertexSource: "/shaders/water/vertex.glsl",
+        fragmentSource: "/shaders/water/fragment.glsl"
     }
 };
 var camera;
 var lightDir;
 var lightLoc;
+var skybox;
+var clipPlane;
+var waterLevel = 8;
 
 var gameObjects = [];
 var dirLights = [];
 var pointLights = [];
 var spotLights = [];
 var root;
-var center;
-var centerCube;
-var cubeOrbit;
-var orbitCube;
+var plane;
+var objects = [];
 var lightCube;
+var terrain;
+var water;
+
+var pos = -5;
+var goup = true;
+var cameraSpeed = 10;
+var cameravVelocity = 0;
+var cameravAcc = 0;
+
+var cameraLook = function(e) {
+    let dx = e.movementX;
+    let dy = e.movementY;
+    camera.pitch(-360 * dy / 1000).yaw(360 * dx / 1000);
+    //dirLights[0].setDirection(new vec3(-camera.getDirection().x, -camera.getDirection().y, camera.getDirection().z));
+};
+
+var keyPressed = e => keysPressed[e.keyCode] = true;
+
+var keyReleased = e => keysPressed[e.keyCode] = false;
 
 window.addEventListener("load", function(e) {
     WIDTH = window.innerWidth;
@@ -39,35 +215,107 @@ window.addEventListener("load", function(e) {
     canvas.style.left = "0";
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-    gl = canvas.getContext('webgl');
+    
+    canvas.addEventListener("webglcontextlost", function(e) {
+        e.preventDefault();
+    });
+    canvas.addEventListener("webglcontextrestored", function(e) {
+        console.log("webgl context restored");
+        cancelAnimationFrame(gameLoopRequest);
+        init(true);
+    });
     
     Promise.all([
         loadResources(resources),
-        makePrograms(gl, programs)
+        loadShaders(programs)
     ]).then(function(values) {
         init();
     }).catch(function(reason) {
         console.log(reason);
     });
+    
+    canvas.addEventListener("click", function(e) {
+        canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
+        canvas.requestPointerLock();
+    });
+    
+    window.addEventListener("resize", function(e) {
+        WIDTH = window.innerWidth;
+        HEIGHT = window.innerHeight;
+        canvas.width = WIDTH;
+        canvas.height = HEIGHT;
+    });
 });
 
-function init() {
+function init(contextLost) {
+    gl = canvas.getContext('webgl');
+    ext = gl.getExtension('WEBGL_depth_texture');
+    makePrograms(gl, programs);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     
-    lightDir = [0.5, 0.7, 1];
-    lightLoc = [1, 1, -1];
+    if(contextLost) {
+        // diagnose and fix context loss problem (might need to create textures and arraybuffers all over again)
+    }
+    else {
+        prepScene();
+    }
+    drawScene();
+}
+
+function prepScene() {
+    lightDir = [0.5, -1, 0.7];
+    lightLoc = [1, 1, 1];
+    
+    skybox = new Skybox(gl, programs.skybox, resources.images["skybox.png"]);
+    
+    terrain = new Terrain(gl,
+                          programs.terrain,
+                          resources.images["terrainHeight.png"],
+                          resources.images["terrainMoisture.png"],
+                          resources.images["terrainColor.png"],
+                          {
+                            sandDiffuse:    resources.images["sandDiffuse.png"],
+                            sandNormal:     resources.images["sandNormal.png"],
+                            grassDiffuse:    resources.images["grassDiffuse.png"],
+                            grassNormal:     resources.images["grassNormal.png"],
+                            forestDiffuse:    resources.images["forestDiffuse.png"],
+                            forestNormal:     resources.images["forestNormal.png"],
+                            snowDiffuse:    resources.images["snowDiffuse.png"],
+                            snowNormal:     resources.images["snowNormal.png"]
+                          },
+                         { maxHeight: 20 });
+    terrain.move(new vec3(-50, 0, -20));
+    gameObjects.push(terrain);
+    
+    water = new Water(gl, programs.water, (terrain.mesh.cols-1) * terrain.mesh.squareSize, (terrain.mesh.rows-1) * terrain.mesh.squareSize, {
+        dudv: resources.images["dudv.png"],
+        normal: resources.images["waterNormal.png"]
+    });
+    water.move(new vec3(terrain.getPosition().x, terrain.getPosition().y, terrain.getPosition().z + waterLevel));
     
     root = new GameObject();
-    center = new GameObject();
+    plane = new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [204, 219, 220, 255]})));
+    objects = [
+        new GameObject(programs.texturedPhong, new Sphere(gl, 32, new Material(gl, {diffuse: [26, 255, 102, 255]}))),
+        new GameObject(programs.texturedPhong, new Sphere(gl, 32, new Material(gl, {diffuse: [254, 95, 85, 255]}))),
+        new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [119, 125, 208, 255]}))),
+        new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [255, 237, 102, 255]}))),
+        new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [136, 77, 255, 255]})))
+    ];
+    lightCube = new GameObject(programs.texturedPhong, new Cube(gl, 0.1, new Material(gl, {diffuse: [26, 255, 102, 255]})));
+    
+    /*center = new GameObject();
     centerCube = new GameObject(programs.texturedPhong, new Sphere(gl, 32, new Material(gl, {diffuse: resources.images["earth.jpg"], shininess: 16})));
     cubeOrbit = new GameObject();
-    orbitCube = new GameObject(programs.texturedPhong, new Cube(gl));
-    lightCube = new GameObject(programs.texturedPhong, new Cube(gl, 0.1, new Material(gl, {diffuse: [26, 255, 102, 255]})));
+    orbitCube = new GameObject(programs.texturedPhong, new Cube(gl));*/
+    
     camera = new PerspectiveCamera({
         fov:    45,
         aRatio: gl.canvas.clientWidth / gl.canvas.clientHeight,
-        near:   1,
+        near:   0.1,
         far:    2000
     });
     var light = new PointLight([0,0,0], {
@@ -76,60 +324,232 @@ function init() {
         intensity:          2,
         specularIntensity:  0.4
     });
-    var light2 = new SpotLight([0, 0, 0], [0, 0, -1], {
+    
+    /*var light2 = new SpotLight([0, 0, 0], [0, 0, -1], {
         ambientIntensity:   0.3,
         linear:             0.01,
         quadratic:          0.015,
         intensity:          2,
         specularIntensity:  0.4,
         innerCutoff:        0,
-    });
+    });*/
     
-    camera.setParent(root);
     light.setParent(root);
-    light2.setParent(root);
+    //light2.setParent(root);
     lightCube.setParent(root);
-    center.setParent(root);
+    plane.setParent(root);
+    objects.forEach(obj => obj.setParent(root));
+    
+    /*center.setParent(root);
     centerCube.setParent(center);
     cubeOrbit.setParent(center);
-    orbitCube.setParent(cubeOrbit);
+    orbitCube.setParent(cubeOrbit);*/
     
-    center.applyTransformations(new mat4().translate(0,0,-3));
-    cubeOrbit.applyTransformations(new mat4().translate(2,0,0).zRotate(30));
-    lightCube.applyTransformations(new mat4().translate(lightLoc[0], lightLoc[1], lightLoc[2]));
+    /*center.applyTransformations(new mat4().translate(0,0,-3));
+    cubeOrbit.applyTransformations(new mat4().translate(2,0,0).zRotate(30));*/
+    plane.applyScale(new vec3(10, 10, 0.1)).move(new vec3(0, 10, -5));
+    objects[0].move(new vec3(2, 13, -4));
+    objects[1].move(new vec3(3, 8, -1));
+    objects[2].move(new vec3(0, 10, -3));
+    objects[3].move(new vec3(3, 13, -3.5));
+    objects[4].move(new vec3(-2, 7, -2));
+    lightCube.move(new vec3(lightLoc));
     
     gameObjects.push(lightCube);
-    gameObjects.push(centerCube);
-    gameObjects.push(orbitCube);
+    gameObjects.push(plane);
+    objects.forEach(obj => gameObjects.push(obj));
+    /*gameObjects.push(centerCube);
+    gameObjects.push(orbitCube);*/
     
-    camera.applyTransformations(new mat4().translate(0, 0, 2));
-    camera.lookAt(centerCube);
+    root.move(new vec3(0, 4, 0));
+    camera.move(new vec3(25, 2, 0));
+    camera.lookAt(plane);
     
-    light.applyTransformations(new mat4().translate(1, 1, -1));
-    pointLights.push(light);
-    spotLights.push(light2);
+    light.move(new vec3(2, 4, 2));
+    //pointLights.push(light);
+    dirLights.push(new DirectionalLight([1, 1, -1], {intensity: 1.0}));
     
-    drawScene();
+    document.addEventListener("pointerlockchange", function(e) {
+        if(document.pointerLockElement == canvas || document.mozPointerLockElement == canvas) {
+            console.log("Pointer lock active");
+            document.addEventListener("mousemove", cameraLook);
+            document.addEventListener("keydown", keyPressed);
+            document.addEventListener("keyup", keyReleased);
+        }
+        else {
+            console.log("Pointer lock removed");
+            document.removeEventListener("mousemove", cameraLook);
+            document.removeEventListener("keydown", keyPressed);
+            document.removeEventListener("keyup", keyReleased);
+        }
+    });
 }
 
 function drawScene(time) {
+    if(paused) {
+        window.requestAnimationFrame(drawScene);
+        return;
+    }
+    
+    dt = (time - lastUpdate) / 1000;
+    if(isNaN(dt)) dt = 0;
+    lastUpdate = time;
+    
+    let sign = (camera.getPosition().z - water.getPosition().z) / Math.abs(camera.getPosition().z - water.getPosition().z);
+    clipPlane = new vec4(0, 0, -1 * sign, -1 * sign * water.getPosition().z-0.1);
+    let { color: refraction, depth: refractionDepth } = renderToTexture(1280, 780, {color: null, depth: null});
+    clipPlane = new vec4(0, 0, 1, water.getPosition().z-0.1);
+    camera.setPosition(new vec3(camera.getPosition().x, camera.getPosition().y, 2*water.getPosition().z - camera.getPosition().z));
+    camera.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, -camera.getDirection().z));
+    let { color: reflection } = renderToTexture(640, 480, {color: null});
+    camera.setPosition(new vec3(camera.getPosition().x, camera.getPosition().y, 2*water.getPosition().z - camera.getPosition().z));
+    camera.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, -camera.getDirection().z));
+    clipPlane = new vec4(0, 0, 1, -10000);
+    
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     
-    for(var i=0; i<gameObjects.length; i++) {
+    gl.disable(gl.DEPTH_TEST);
+    skybox.draw(gl, camera);
+    gl.enable(gl.DEPTH_TEST);
+    
+    for(let i=0; i<gameObjects.length; i++) {
+        gameObjects[i].draw(gl, camera);
+    }
+    gl.disable(gl.CULL_FACE);
+    water.draw(gl, camera, reflection, refraction, refractionDepth);
+    gl.enable(gl.CULL_FACE);
+    
+    if(pos > -1) goup = false;
+    if(pos < -5) goup = true;
+    if(goup) {
+        plane.move(new vec3(0, 0, 0.01));
+        pos += 0.01;
+    }
+    else {
+        plane.move(new vec3(0, 0, -0.01));
+        pos -= 0.01;
+    }
+    if(gravityMode) {
+        if(keysPressed[KeyEvent.DOM_VK_W]) {
+            camera.move(new vec3(camera.getDirection().x, camera.getDirection().y, 0), cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_S]) {
+            camera.move(new vec3(-camera.getDirection().x, -camera.getDirection().y, 0), cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_A]) {
+            camera.move(new vec3(-camera.getDirection().y, camera.getDirection().x, 0), cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_D]) {
+            camera.move(new vec3(camera.getDirection().y, -camera.getDirection().x, 0), cameraSpeed * dt);
+        }
+        cameravVelocity += (gravity.z + cameravAcc) * dt;
+        camera.moveUp(cameravVelocity * dt);
+        let cPos = camera.getPosition();
+        let heightAtCamera = terrain.getHeight(cPos.x, cPos.y);
+        if(cPos.z < heightAtCamera + 2) {
+            camera.setPosition(new vec3(cPos.x, cPos.y, heightAtCamera + 2));
+            cameravVelocity = 0;
+        }
+        if(keysPressed[KeyEvent.DOM_VK_SPACE] && cPos.z - heightAtCamera < 2.5) {
+            cameravAcc = 60;
+            setTimeout(function() {cameravAcc = 0;}, 100);
+        }
+    }
+    else {
+        if(keysPressed[KeyEvent.DOM_VK_W]) {
+            camera.moveForward(cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_S]) {
+            camera.moveBackward(cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_A]) {
+            camera.moveLeft(cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_D]) {
+            camera.moveRight(cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_SHIFT]) {
+            camera.moveUp(cameraSpeed * dt);
+        }
+        if(keysPressed[KeyEvent.DOM_VK_CONTROL]) {
+            camera.moveDown(cameraSpeed * dt);
+        }
+    }
+    if(keysPressed[KeyEvent.DOM_VK_G]) {
+        if(!gheld) {
+            gravityMode ^= 1;
+        }
+        gheld = true;
+    }
+    else {
+        gheld = false;
+    }
+    
+    water.setPosition(new vec3(terrain.getPosition().x, terrain.getPosition().y, terrain.getPosition().z + waterLevel));
+    water.moveWaves(dt);
+    
+    /*cubeOrbit.applyTransformations(new mat4().rotate([-1, 2, 0], 0.5));
+    orbitCube.applyTransformations(new mat4().xRotate(0.3).yRotate(0.3).zRotate(0.3));
+    centerCube.applyTransformations(new mat4().yRotate(-0.2));*/
+    gl.deleteTexture(reflection);
+    gl.deleteTexture(refraction);
+    gl.deleteTexture(refractionDepth);
+    gameLoopRequest = window.requestAnimationFrame(drawScene);
+}
+
+function renderToTexture(width, height, query) {
+    let color, depth;
+    
+    if(query.hasOwnProperty("color")) {
+        color = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, color);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    
+    if(query.hasOwnProperty("depth")) {
+        depth = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, depth);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+        
+    let fb = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    if(query.hasOwnProperty("color")) {
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, color, 0);
+    }
+    if(query.hasOwnProperty("depth")) {
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
+    }
+    
+    gl.viewport(0, 0, width, height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    gl.disable(gl.DEPTH_TEST);
+    skybox.draw(gl, camera);
+    gl.enable(gl.DEPTH_TEST);
+    
+    for(let i=0; i<gameObjects.length; i++) {
         gameObjects[i].draw(gl, camera);
     }
     
-    cubeOrbit.applyTransformations(new mat4().rotate([-1, 2, 0], 0.5));
-    orbitCube.applyTransformations(new mat4().xRotate(0.3).yRotate(0.3).zRotate(0.3));
-    centerCube.applyTransformations(new mat4().yRotate(-0.2));
-    window.requestAnimationFrame(drawScene);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fb);
+    
+    return { color, depth };
 }
 
 function loadSource(filename) {
     return new Promise(function(resolve, reject) {
-        var xhttp = new XMLHttpRequest();
+        let xhttp = new XMLHttpRequest();
         xhttp.onreadystatechange = function() {
             if(xhttp.readyState == 4) {
                 if(xhttp.status == 200) {
@@ -145,11 +565,29 @@ function loadSource(filename) {
     });
 }
 
+function loadImage(filename) {
+    return new Promise(function(resolve, reject) {
+        let image = new Image();
+        image.onload = function() {
+            let tCanvas = document.createElement("canvas");
+            let tCtx = tCanvas.getContext('2d');
+            tCanvas.width = image.width;
+            tCanvas.height = image.height;
+            tCtx.drawImage(image, 0, 0);
+            resolve(tCtx.getImageData(0, 0, image.width, image.height));
+        };
+        image.onerror = function() {
+            reject("Error loading image " + filename);
+        };
+        image.src = url + "/images/" + filename;
+    });
+}
+
 function createShader(gl, type, source) {
-    var shader = gl.createShader(type);
+    let shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
-    var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+    let success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
     if(success) {
         return shader;
     }
@@ -157,60 +595,63 @@ function createShader(gl, type, source) {
     gl.deleteShader(shader);
 }
 
-function createProgram(gl, vertexSource, fragmentSource) {
-    return new Promise(function(resolve, reject) {
-        var vertexShaderPromise = loadSource(vertexSource);
-        var fragmentShaderPromise = loadSource(fragmentSource);
-        Promise.all([vertexShaderPromise, fragmentShaderPromise]).then(function(values) {
-            var vertexShaderSource = values[0];
-            var fragmentShaderSource = values[1];
-            var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-            var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-            var prog = gl.createProgram();
-            gl.attachShader(prog, vertexShader);
-            gl.attachShader(prog, fragmentShader);
-            gl.linkProgram(prog);
-            var success = gl.getProgramParameter(prog, gl.LINK_STATUS);
-            if(success) {
-                var attrSetts = createAttribSetters(gl, prog);
-                var unifSetts = createUniformSetters(gl, prog);
-                resolve({
-                    program: prog,
-                    attribSetters: attrSetts,
-                    uniformSetters: unifSetts
-                });
-            }
-            else {
-                reject(gl.getProgramInfoLog(prog));
-                gl.deleteProgram(prog);
-            }
-        }).catch(function(reason) {
-            reject(reason);
-        });
-    });
+function createProgram(gl, vertexShaderSource, fragmentShaderSource) {
+    let vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    let fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    let prog = gl.createProgram();
+    gl.attachShader(prog, vertexShader);
+    gl.attachShader(prog, fragmentShader);
+    gl.linkProgram(prog);
+    let success = gl.getProgramParameter(prog, gl.LINK_STATUS);
+    if(success) {
+        let attrSetts = createAttribSetters(gl, prog);
+        let unifSetts = createUniformSetters(gl, prog);
+        return {
+            program: prog,
+            attribSetters: attrSetts,
+            uniformSetters: unifSetts
+        };
+    }
+    else {
+        console.log(gl.getProgramInfoLog(prog));
+        gl.deleteProgram(prog);
+        return null;
+    }
 }
 
 function makePrograms(gl, programs) {
+    for(let program in programs) {
+        if(programs.hasOwnProperty(program)) {
+            let programInfo = createProgram(gl, programs[program].vertexShader, programs[program].fragmentShader);
+            for(let prop in programInfo) {
+                if(programInfo.hasOwnProperty(prop)) {
+                    programs[program][prop] = programInfo[prop];
+                }
+            }
+        }
+    }
+}
+
+function loadShaders(programs) {
     return new Promise(function(resolve, reject) {
-        var promises = [];
-        for(var program in programs) {
+        let promises = [];
+        for(let program in programs) {
             if(programs.hasOwnProperty(program)) {
-                promises.push(createProgram(gl, programs[program].vertexSource, programs[program].fragmentSource));
+                promises.push(new Promise(function(resolve, reject) {
+                    let minipromises = [];
+                    minipromises.push(loadSource(programs[program].vertexSource), loadSource(programs[program].fragmentSource));
+                    Promise.all(minipromises).then(function(values) {
+                        programs[program].vertexShader = values[0];
+                        programs[program].fragmentShader = values[1];
+                        resolve();
+                    }).catch(function(reason) {
+                        reject(reason);
+                    });
+                }));
             }
         }
         Promise.all(promises).then(function(values) {
-            var i = 0;
-            for(var program in programs) {
-                if(programs.hasOwnProperty(program)) {
-                    for(var prop in values[i]) {
-                        if(values[i].hasOwnProperty(prop)) {
-                            programs[program][prop] = values[i][prop];
-                        }
-                    }
-                    i++;
-                }
-            }
-            resolve(true);
+            resolve();
         }).catch(function(reason) {
             reject(reason);
         });
@@ -219,24 +660,15 @@ function makePrograms(gl, programs) {
 
 function loadResources(res) {
     return new Promise(function(resolve, reject) {
-        var promises = [];
-        for(var im in res.images) {
+        let promises = [];
+        for(let im in res.images) {
             if(res.images.hasOwnProperty(im)) {
-                promises.push(new Promise(function(resolve, reject) {
-                    var image = new Image();
-                    image.onload = function() {
-                        resolve(image);
-                    };
-                    image.onerror = function() {
-                        reject("Error loading image " + im);
-                    };
-                    image.src = url + "/resources/images/" + im;
-                }));
+                promises.push(loadImage(im));
             }
         }
         Promise.all(promises).then(function(values) {
-            var i=0;
-            for(var im in res.images) {
+            let i=0;
+            for(let im in res.images) {
                 if(res.images.hasOwnProperty(im)) {
                     res.images[im] = values[i++];
                 }
@@ -249,7 +681,7 @@ function loadResources(res) {
 }
 
 function createAttribSetters(gl, program) {
-    var attribSetters = {};
+    let attribSetters = {};
     
     function getAttribSetter(loc) {
         return function(attr) {
@@ -259,22 +691,22 @@ function createAttribSetters(gl, program) {
         };
     }
     
-    var n = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
-    for(var i=0; i<n; i++) {
-        var attribInfo = gl.getActiveAttrib(program, i);
+    let n = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+    for(let i=0; i<n; i++) {
+        let attribInfo = gl.getActiveAttrib(program, i);
         if(!attribInfo) {
             break;
         }
-        var loc = gl.getAttribLocation(program, attribInfo.name);
+        let loc = gl.getAttribLocation(program, attribInfo.name);
         attribSetters[attribInfo.name] = getAttribSetter(loc);
     }
     return attribSetters;
 }
 
 function setAttributes(setters, attribs) {
-    for(var attr in attribs) {
+    for(let attr in attribs) {
         if(attribs.hasOwnProperty(attr)) {
-            var set = setters[attr];
+            let set = setters[attr];
             if(set) {
                 set(attribs[attr]);
             }
@@ -283,13 +715,13 @@ function setAttributes(setters, attribs) {
 }
 
 function createUniformSetters(gl, program) {
-    var uniformSetters = {};
-    var textureUnit = 0;
+    let uniformSetters = {};
+    let textureUnit = 0;
     
     function getUniformSetter(program, uniformInfo, textureUnit) {
-        var loc = gl.getUniformLocation(program, uniformInfo.name);
-        var type = uniformInfo.type;
-        var isArray = (uniformInfo.size > 1 && uniformInfo.name.substr(-3) === '[0]');
+        let loc = gl.getUniformLocation(program, uniformInfo.name);
+        let type = uniformInfo.type;
+        let isArray = (uniformInfo.size > 1 && uniformInfo.name.substr(-3) === '[0]');
         switch(type) {
             case gl.FLOAT:
                 if(isArray) {
@@ -382,9 +814,9 @@ function createUniformSetters(gl, program) {
                 break;
             case gl.SAMPLER_2D: case gl.SAMPLER_CUBE:
                 if(isArray) {
-                    var units = [];
-                    var textureUnit = 0;
-                    for(var i=0; i<uniformInfo.size; i++) {
+                    let units = [];
+                    let textureUnit = 0;
+                    for(let i=0; i<uniformInfo.size; i++) {
                         units.push(textureUnit++);
                     }
                     return function(bindPoint, units) {
@@ -412,13 +844,13 @@ function createUniformSetters(gl, program) {
         };
     }
     
-    var n = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
-    for(var i=0; i<n; i++) {
-        var uniformInfo = gl.getActiveUniform(program, i);
+    let n = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+    for(let i=0; i<n; i++) {
+        let uniformInfo = gl.getActiveUniform(program, i);
         if(!uniformInfo) {
             break;
         }
-        var name = uniformInfo.name;
+        let name = uniformInfo.name;
         if(name.substr(-3) === '[0]') {
             name = name.substr(0, name.length - 3);
         }
@@ -436,9 +868,9 @@ function createUniformSetters(gl, program) {
 }
 
 function setUniforms(setters, uniforms) {
-    for(var unif in uniforms) {
+    for(let unif in uniforms) {
         if(uniforms.hasOwnProperty(unif)) {
-            var set = setters[unif];
+            let set = setters[unif];
             if(set) {
                 set(uniforms[unif]);
             }

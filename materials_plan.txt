@@ -3,6 +3,5 @@ frustum culling
 model import
 better shaders
 
-keyboard/mouse controls
 physics
 webaudio

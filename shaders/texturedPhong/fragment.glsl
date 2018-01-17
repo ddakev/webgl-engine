@@ -47,6 +47,7 @@ struct SpotLight {
 varying vec2                v_uv;
 varying vec3                v_normal;
 varying vec3                v_position;
+varying float               v_clipDistance;
 
 uniform vec3                u_viewWorldPosition;
 uniform int                 u_numDir;

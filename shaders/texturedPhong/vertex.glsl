@@ -51,14 +51,17 @@ uniform vec3                u_viewWorldPosition;
 uniform mat4                u_model;
 uniform mat4                u_modelViewProjection;
 uniform mat4                u_modelInverseTranspose;
+uniform vec4                u_clipPlane;
 
 varying vec2                v_uv;
 varying vec3                v_normal;
 varying vec3                v_position;
+varying float               v_clipDistance;
 
 void main() {
     gl_Position = u_modelViewProjection * a_position;
     v_uv = a_uv;
     v_normal = (u_modelInverseTranspose * vec4(a_normal, 0)).xyz;
     v_position = (u_model * a_position).xyz;
+    v_clipDistance = dot(u_model * a_position, vec4(u_clipPlane.x, u_clipPlane.y, u_clipPlane.z, -u_clipPlane.w));
 }
