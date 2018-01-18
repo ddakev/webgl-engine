@@ -2,12 +2,15 @@ precision mediump float;
 precision mediump int;
 
 struct DirectionalLight {
-    vec3    direction;
-    vec3    color;
+    vec3        direction;
+    vec3        color;
     
-    float   intensity;
-    float   ambientIntensity;
-    float   specularIntensity;
+    float       intensity;
+    float       ambientIntensity;
+    float       specularIntensity;
+    
+    sampler2D   shadowMap;
+    mat4        bModelViewProjection;
 };
 
 attribute   vec3    a_position;

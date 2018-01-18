@@ -8,12 +8,15 @@ struct Terrain {
 };
 
 struct DirectionalLight {
-    vec3    direction;
-    vec3    color;
+    vec3        direction;
+    vec3        color;
     
-    float   intensity;
-    float   ambientIntensity;
-    float   specularIntensity;
+    float       intensity;
+    float       ambientIntensity;
+    float       specularIntensity;
+    
+    sampler2D   shadowMap;
+    mat4        bModelViewProjection;
 };
 
 attribute   vec3        a_position;
@@ -29,13 +32,14 @@ uniform     mat4                u_modelInverseTranspose;
 uniform     vec4                u_clipPlane;
 uniform     sampler2D           u_normalTexture;
 uniform     int                 u_numDir;
-uniform     DirectionalLight    dirLights[5];
+uniform     DirectionalLight    dirLights[3];
 
 //varying     vec3        v_normal;
 varying     vec3        v_position;
 varying     vec2        v_uv;
 varying     float       v_clipDistance;
-varying     vec3        v_dirLightDirection[5];
+varying     vec3        v_dirLightDirection[3];
+varying     vec3        v_shadowPositions[3];
 
 void main() {
     v_clipDistance = dot(u_model * vec4(a_position, 1.0), vec4(u_clipPlane.x, u_clipPlane.y, u_clipPlane.z, -u_clipPlane.w));
@@ -56,9 +60,10 @@ void main() {
         tangent.z, bitangent.z, normal.z
     );
     
-    for(int i=0; i<5; i++) {
+    for(int i=0; i<3; i++) {
         if(i >= u_numDir) break;
         v_dirLightDirection[i] = normalize(dirLights[i].direction * tbnMatrix);
+        v_shadowPositions[i] = vec3(dirLights[i].bModelViewProjection * vec4(a_position, 1.0));
     }
     //v_normal = (u_modelInverseTranspose * vec4(a_normal, 0)).xyz;
 }

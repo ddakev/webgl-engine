@@ -13,6 +13,8 @@ var url = "http://localhost:8080";
 var keysPressed = {};
 var lastUpdate = 0;
 var dt = 0;
+var jitters = null;
+var jitterSize = 8;
 
 if (typeof KeyEvent == "undefined") {
     var KeyEvent = {
@@ -169,6 +171,10 @@ var programs = {
     water: {
         vertexSource: "/shaders/water/vertex.glsl",
         fragmentSource: "/shaders/water/fragment.glsl"
+    },
+    shadow: {
+        vertexSource: "/shaders/shadow/vertex.glsl",
+        fragmentSource: "/shaders/shadow/fragment.glsl"
     }
 };
 var camera;
@@ -199,7 +205,8 @@ var cameraLook = function(e) {
     let dx = e.movementX;
     let dy = e.movementY;
     camera.pitch(-360 * dy / 1000).yaw(360 * dx / 1000);
-    //dirLights[0].setDirection(new vec3(-camera.getDirection().x, -camera.getDirection().y, camera.getDirection().z));
+    //dirLights[0].setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, camera.getDirection().z));
+    //dirLights[0].camera.setDirection(dirLights[0].getDirection());
 };
 
 var keyPressed = e => keysPressed[e.keyCode] = true;
@@ -255,6 +262,8 @@ function init(contextLost) {
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    
+    generateJitters(gl);
     
     if(contextLost) {
         // diagnose and fix context loss problem (might need to create textures and arraybuffers all over again)
@@ -361,13 +370,28 @@ function prepScene() {
     /*gameObjects.push(centerCube);
     gameObjects.push(orbitCube);*/
     
-    root.move(new vec3(0, 4, 0));
+    //root.move(new vec3(0, 4, 0));
     camera.move(new vec3(25, 2, 0));
     camera.lookAt(plane);
     
     light.move(new vec3(2, 4, 2));
     //pointLights.push(light);
-    dirLights.push(new DirectionalLight([1, 1, -1], {intensity: 1.0}));
+    
+    
+    let dl = new DirectionalLight([1, 1, -1], {intensity: 2.7});
+    let lightCamera = new OrthographicCamera({
+        left:  -10,
+        right: 10,
+        top:   10,
+        bottom: -10,
+        near:  0,
+        far:   400
+    });
+    lightCamera.setPosition(plane.getPosition());
+    lightCamera.setDirection(dl.getDirection());
+    //lightCamera.moveBackward(200);
+    dl.setCamera(lightCamera);
+    dirLights.push(dl);
     
     document.addEventListener("pointerlockchange", function(e) {
         if(document.pointerLockElement == canvas || document.mozPointerLockElement == canvas) {
@@ -395,10 +419,14 @@ function drawScene(time) {
     if(isNaN(dt)) dt = 0;
     lastUpdate = time;
     
+    gl.cullFace(gl.FRONT);
+    renderShadowMaps(1024, 1024);
+    gl.cullFace(gl.BACK);
+    
     let sign = (camera.getPosition().z - water.getPosition().z) / Math.abs(camera.getPosition().z - water.getPosition().z);
     clipPlane = new vec4(0, 0, -1 * sign, -1 * sign * water.getPosition().z-0.1);
     let { color: refraction, depth: refractionDepth } = renderToTexture(1280, 780, {color: null, depth: null});
-    clipPlane = new vec4(0, 0, 1, water.getPosition().z-0.1);
+    clipPlane = new vec4(0, 0, 1, water.getPosition().z);
     camera.setPosition(new vec3(camera.getPosition().x, camera.getPosition().y, 2*water.getPosition().z - camera.getPosition().z));
     camera.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, -camera.getDirection().z));
     let { color: reflection } = renderToTexture(640, 480, {color: null});
@@ -493,6 +521,9 @@ function drawScene(time) {
     /*cubeOrbit.applyTransformations(new mat4().rotate([-1, 2, 0], 0.5));
     orbitCube.applyTransformations(new mat4().xRotate(0.3).yRotate(0.3).zRotate(0.3));
     centerCube.applyTransformations(new mat4().yRotate(-0.2));*/
+    for(let i=0; i<dirLights.length; i++) {
+        gl.deleteTexture(dirLights[i].shadowMap);
+    }
     gl.deleteTexture(reflection);
     gl.deleteTexture(refraction);
     gl.deleteTexture(refractionDepth);
@@ -545,6 +576,46 @@ function renderToTexture(width, height, query) {
     gl.deleteFramebuffer(fb);
     
     return { color, depth };
+}
+
+function renderShadowMaps(width, height) {
+    for(let i=0; i<dirLights.length; i++) {        
+        let sMap = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, sMap);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        
+        let fb = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sMap, 0);
+        
+        gl.viewport(0, 0, width, height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        for(let j=0; j<gameObjects.length; j++) {
+            gameObjects[j].drawShadow(gl, programs.shadow, dirLights[i].camera);
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.deleteFramebuffer(fb);
+        dirLights[i].shadowMap = sMap;
+    }
+}
+
+function generateJitters(gl) {
+    let data = [];
+    for(let i = 0; i < jitterSize * jitterSize; i++) {
+        data.push(Math.random() * 256, Math.random() * 256);
+    }
+    data = new Uint8Array(data);
+    jitters = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, jitters);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, jitterSize/2, jitterSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.generateMipmap(gl.TEXTURE_2D);
 }
 
 function loadSource(filename) {

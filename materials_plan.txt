@@ -1,7 +1,6 @@
-shadows
 frustum culling
 model import
-better shaders
+PBR shaders
 
 physics
 webaudio

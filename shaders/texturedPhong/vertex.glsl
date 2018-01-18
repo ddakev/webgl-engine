@@ -2,12 +2,15 @@ precision mediump float;
 precision mediump int;
 
 struct DirectionalLight {
-    vec3    direction;
-    vec3    color;
+    vec3        direction;
+    vec3        color;
     
-    float   intensity;
-    float   ambientIntensity;
-    float   specularIntensity;
+    float       intensity;
+    float       ambientIntensity;
+    float       specularIntensity;
+    
+    sampler2D   shadowMap;
+    mat4        bModelViewProjection;
 };
 
 struct PointLight {
@@ -57,6 +60,7 @@ varying vec2                v_uv;
 varying vec3                v_normal;
 varying vec3                v_position;
 varying float               v_clipDistance;
+varying vec3                v_shadowPositions[5];
 
 void main() {
     gl_Position = u_modelViewProjection * a_position;
@@ -64,4 +68,10 @@ void main() {
     v_normal = (u_modelInverseTranspose * vec4(a_normal, 0)).xyz;
     v_position = (u_model * a_position).xyz;
     v_clipDistance = dot(u_model * a_position, vec4(u_clipPlane.x, u_clipPlane.y, u_clipPlane.z, -u_clipPlane.w));
+    
+    
+    for(int i=0; i<5; i++) {
+        if(i >= u_numDir) break;
+        v_shadowPositions[i] = vec3(dirLights[i].bModelViewProjection * a_position);
+    }
 }
