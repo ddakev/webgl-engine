@@ -153,6 +153,11 @@ const resources = {
         "snowNormal.png": null,
         "dudv.png": null,
         "waterNormal.png": null
+    },
+    models: {
+        "rock.obj": null,
+        "pine.obj": null,
+        "tree.obj": null
     }
 };
 var programs = {
@@ -309,9 +314,9 @@ function prepScene() {
     plane = new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [204, 219, 220, 255]})));
     objects = [
         new GameObject(programs.texturedPhong, new Sphere(gl, 32, new Material(gl, {diffuse: [26, 255, 102, 255]}))),
-        new GameObject(programs.texturedPhong, new Sphere(gl, 32, new Material(gl, {diffuse: [254, 95, 85, 255]}))),
-        new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [119, 125, 208, 255]}))),
-        new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [255, 237, 102, 255]}))),
+        new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["pine.obj"], new Material(gl, {diffuse: [79, 124, 65, 255, 62, 37, 26, 255]}))),
+        new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["rock.obj"], new Material(gl, {diffuse: [170, 170, 160, 255]}))),
+        new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["tree.obj"], new Material(gl, {diffuse: [39, 84, 25, 255, 62, 37, 26, 255]}))),
         new GameObject(programs.texturedPhong, new Cube(gl, 1, new Material(gl, {diffuse: [136, 77, 255, 255]})))
     ];
     lightCube = new GameObject(programs.texturedPhong, new Cube(gl, 0.1, new Material(gl, {diffuse: [26, 255, 102, 255]})));
@@ -660,6 +665,24 @@ function loadImage(filename) {
     });
 }
 
+function loadModel(filename) {
+    return new Promise(function(resolve, reject) {
+        let xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if(xhttp.readyState == 4) {
+                if(xhttp.status == 200) {
+                    resolve({format: filename.slice(-3), data: xhttp.responseText});
+                }
+                else {
+                    reject("Error getting resource " + filename);
+                }
+            }
+        }
+        xhttp.open("GET", url + "/models/" + filename, true);
+        xhttp.send(null);
+    });
+}
+
 function createShader(gl, type, source) {
     let shader = gl.createShader(type);
     gl.shaderSource(shader, source);
@@ -743,11 +766,21 @@ function loadResources(res) {
                 promises.push(loadImage(im));
             }
         }
+        for(let m in res.models) {
+            if(res.models.hasOwnProperty(m)) {
+                promises.push(loadModel(m));
+            }
+        }
         Promise.all(promises).then(function(values) {
             let i=0;
             for(let im in res.images) {
                 if(res.images.hasOwnProperty(im)) {
                     res.images[im] = values[i++];
+                }
+            }
+            for(let m in res.models) {
+                if(res.models.hasOwnProperty(m)) {
+                    res.models[m] = values[i++];
                 }
             }
             resolve(true);

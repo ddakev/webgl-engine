@@ -1,5 +1,3 @@
-frustum culling
-model import
 PBR shaders
 
 physics
