@@ -59,18 +59,9 @@ float random(vec4 seed4) {
 float predictShadow(sampler2D shadowMap, vec3 uv) {
     float total = 1.0;
     for(float i=0.0; i<offsetSize; i++) {
-        vec4 jit = texture2D(u_offsets, vec2(random(vec4(uv.x))+(i/2.0)/offsetSize, random(vec4(uv.y))+1.0/offsetSize));
-        float ju, jv;
-        if(mod(i, 2.0) == 0.0) {
-            ju = jit.x;
-            jv = jit.y;
-        }
-        else {
-            ju = jit.z;
-            jv = jit.w;
-        }
-        float u = (i - offsetSize / 2.0 + ju) /offsetSize + 0.5;
-        float v = (offsetSize / 2.0 + jv) /offsetSize + 0.5;
+        vec2 jit = texture2D(u_offsets, vec2(i/offsetSize, (offsetSize-1.0)/offsetSize)).xy;
+        float u = (i - offsetSize / 2.0 + jit.x) /offsetSize + 0.5;
+        float v = (offsetSize / 2.0 + jit.y) /offsetSize + 0.5;
         float x = sqrt(v) * cos(2.0*M_PI*u);
         float y = sqrt(v) * sin(2.0*M_PI*u);
         
@@ -84,18 +75,9 @@ float stratSample(sampler2D shadowMap, vec3 uv, float prediction) {
     float total = 1.0 - (1.0 - prediction) / offsetSize;
     for(float i=0.0; i<offsetSize; i++) {
         for(float j=0.0; j<offsetSize-1.0; j++) {
-            vec4 jit = texture2D(u_offsets, vec2(uv.x+(i/2.0)/offsetSize, uv.y+j/offsetSize));
-            float ju, jv;
-            if(mod(i, 2.0) == 0.0) {
-                ju = jit.x;
-                jv = jit.y;
-            }
-            else {
-                ju = jit.z;
-                jv = jit.w;
-            }
-            float u = (i - offsetSize / 2.0 + ju) /offsetSize + 0.5;
-            float v = (j - offsetSize / 2.0 + jv) /offsetSize + 0.5;
+            vec2 jit = texture2D(u_offsets, vec2(random(vec4(uv.x))+i/offsetSize, random(vec4(uv.y))+j/offsetSize)).xy;
+            float u = (i - offsetSize / 2.0 + jit.x) /offsetSize + 0.5;
+            float v = (j - offsetSize / 2.0 + jit.y) /offsetSize + 0.5;
             float x = sqrt(v) * cos(2.0*M_PI*u);
             float y = sqrt(v) * sin(2.0*M_PI*u);
 

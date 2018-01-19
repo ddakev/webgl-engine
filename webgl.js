@@ -419,6 +419,8 @@ function drawScene(time) {
     if(isNaN(dt)) dt = 0;
     lastUpdate = time;
     
+    camera.updatePlanes();
+    
     gl.cullFace(gl.FRONT);
     renderShadowMaps(1024, 1024);
     gl.cullFace(gl.BACK);
@@ -429,9 +431,11 @@ function drawScene(time) {
     clipPlane = new vec4(0, 0, 1, water.getPosition().z);
     camera.setPosition(new vec3(camera.getPosition().x, camera.getPosition().y, 2*water.getPosition().z - camera.getPosition().z));
     camera.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, -camera.getDirection().z));
+    camera.updatePlanes();
     let { color: reflection } = renderToTexture(640, 480, {color: null});
     camera.setPosition(new vec3(camera.getPosition().x, camera.getPosition().y, 2*water.getPosition().z - camera.getPosition().z));
     camera.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, -camera.getDirection().z));
+    camera.updatePlanes();
     clipPlane = new vec4(0, 0, 1, -10000);
     
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -596,6 +600,8 @@ function renderShadowMaps(width, height) {
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
+        dirLights[i].camera.updatePlanes();
+        
         for(let j=0; j<gameObjects.length; j++) {
             gameObjects[j].drawShadow(gl, programs.shadow, dirLights[i].camera);
         }
@@ -609,12 +615,12 @@ function renderShadowMaps(width, height) {
 function generateJitters(gl) {
     let data = [];
     for(let i = 0; i < jitterSize * jitterSize; i++) {
-        data.push(Math.random() * 256, Math.random() * 256);
+        data.push(Math.random() * 256, Math.random() * 256, 0, 0);
     }
     data = new Uint8Array(data);
     jitters = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, jitters);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, jitterSize/2, jitterSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, jitterSize, jitterSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
     gl.generateMipmap(gl.TEXTURE_2D);
 }
 
