@@ -131,6 +131,9 @@ void main() {
             else {
                 visibility[0] = stratSample(dirLights[0].shadowMap, v_shadowPositions[0], prediction) / 2.0 + 0.5;
             }
+            /*if(texture2D(dirLights[0].shadowMap, v_shadowPositions[0].xy).r < v_shadowPositions[0].z - bias) {
+                visibility[0] = 0.5;
+            }*/
             /*for(int i=0; i<4; i++) {
                 if(texture2D(dirLights[0].shadowMap, v_shadowPositions[0].xy + poissonDisk[i]/700.0).r < v_shadowPositions[0].z-bias)
                     visibility[0] = visibility[0] - 0.2;

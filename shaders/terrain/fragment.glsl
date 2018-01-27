@@ -189,7 +189,7 @@ void main() {
         if(u_viewWorldPosition.y > u_waterLevel) {
             underwaterDistance = underwaterDistance * (u_waterLevel - v_position.y) / (u_viewWorldPosition.y - v_position.y);
         }
-        gl_FragColor = mix(gl_FragColor, vec4(0.0, 0.3, 0.5, 1.0), clamp(underwaterDistance / 10.0, 0.0, 1.0));
+        gl_FragColor = mix(gl_FragColor, vec4(0.0, 0.3, 0.5, 1.0), clamp(underwaterDistance / 30.0, 0.0, 1.0));
     }
     //gl_FragColor = vec4(vec3(texture2D(dirLights[0].shadowMap, v_shadowPositions[0].xy)), 1.0);
     //gl_FragColor = vec4(vec3(-v_shadowPositions[0].z), 1.0);

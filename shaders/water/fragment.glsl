@@ -76,6 +76,6 @@ void main() {
         gl_FragColor.a = clamp(waterDepth/3.0, 0.0, 1.0);
     }
     else {
-        gl_FragColor = mix(texture2D(u_refractionTexture, refractCoords), vec4(0.0, 0.3, 0.5, 1.0), clamp(waterDistance / 10.0, 0.0, 1.0));
+        gl_FragColor = mix(texture2D(u_refractionTexture, refractCoords), vec4(0.0, 0.3, 0.5, 1.0), clamp(waterDistance / 30.0, 0.0, 1.0));
     }
 }

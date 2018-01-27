@@ -1,7 +1,7 @@
 var paused = 0;
 var gravityMode = false;
 var gheld = false;
-var gravity = new vec3(0, 0, -10);
+var gravity = new vec3(0, 0, -50);
 
 var canvas;
 var gl;
@@ -9,7 +9,7 @@ var gameLoopRequest;
 var ext;
 var WIDTH;
 var HEIGHT;
-var url = "http://localhost:8080";
+var url = window.location.href.split('?')[0];
 var keysPressed = {};
 var lastUpdate = 0;
 var dt = 0;
@@ -157,7 +157,8 @@ const resources = {
     models: {
         "rock.obj": null,
         "pine.obj": null,
-        "tree.obj": null
+        "tree.obj": null,
+        "snowy_pine.obj": null
     }
 };
 var programs = {
@@ -352,7 +353,7 @@ function prepScene() {
     //light2.setParent(root);
     lightCube.setParent(root);
     plane.setParent(root);
-    objects.forEach(obj => obj.setParent(root));
+    //objects.forEach(obj => obj.setParent(root));
     
     /*center.setParent(root);
     centerCube.setParent(center);
@@ -368,6 +369,48 @@ function prepScene() {
     objects[3].move(new vec3(3, 13, -3.5));
     objects[4].move(new vec3(-2, 7, -2));
     lightCube.move(new vec3(lightLoc));
+    for(let i=0; i<125; i++) {
+        let x = Math.random() * terrain.mesh.cols * terrain.mesh.squareSize;
+        let y = Math.random() * terrain.mesh.rows * terrain.mesh.squareSize;
+        let height = (terrain.getHeight(terrain.getAbsolutePosition().x + x, terrain.getAbsolutePosition().y + y)-terrain.getAbsolutePosition().z) / terrain.mesh.maxHeight;
+        if(height < (waterLevel-1) / terrain.mesh.maxHeight) {}
+        else if(height < 0.45) {
+            // rock
+            let rock = new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["rock.obj"], new Material(gl, {diffuse: [170, 170, 160, 255]})));
+            rock.setParent(terrain);
+            rock.rotate(vec3.UP, Math.random() * 360);
+            rock.setScale(new vec3(Math.random() * 0.4 + 0.4,Math.random() * 0.4 + 0.4,Math.random() * 0.4 + 0.4));
+            rock.setPosition(new vec3(x, y, height * terrain.mesh.maxHeight));
+            gameObjects.push(rock);
+        }
+        else if(height < 0.65) {
+            // tree
+            let tree = new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["tree.obj"], new Material(gl, {diffuse: [39, 84, 25, 255, 62, 37, 26, 255]})));
+            tree.setParent(terrain);
+            tree.rotate(vec3.UP, Math.random() * 360);
+            tree.setScale(new vec3(Math.random() * 0.4 + 0.4));
+            tree.setPosition(new vec3(x, y, height * terrain.mesh.maxHeight));
+            gameObjects.push(tree);
+        }
+        else if(height < 0.85) {
+            // pine
+            let pine = new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["pine.obj"], new Material(gl, {diffuse: [79, 124, 65, 255, 62, 37, 26, 255]})));
+            pine.setParent(terrain);
+            pine.rotate(vec3.UP, Math.random() * 360);
+            pine.setScale(new vec3(Math.random() * 0.4 + 0.4));
+            pine.setPosition(new vec3(x, y, height * terrain.mesh.maxHeight));
+            gameObjects.push(pine);
+        }
+        else {
+            // snowy pine
+            let pine = new GameObject(programs.texturedPhong, new Mesh(gl, resources.models["snowy_pine.obj"], new Material(gl, {diffuse: [79, 124, 65, 255, 62, 37, 26, 255, 215, 222, 207, 255, 215, 222, 207, 255]})));
+            pine.setParent(terrain);
+            pine.rotate(vec3.UP, Math.random() * 360);
+            pine.setScale(new vec3(Math.random() * 0.4 + 0.4));
+            pine.setPosition(new vec3(x, y, height * terrain.mesh.maxHeight));
+            gameObjects.push(pine);
+        }
+    }
     
     gameObjects.push(lightCube);
     gameObjects.push(plane);
@@ -392,7 +435,7 @@ function prepScene() {
         near:  0,
         far:   400
     });
-    lightCamera.setPosition(plane.getPosition());
+    //lightCamera.setPosition(plane.getPosition());
     lightCamera.setDirection(dl.getDirection());
     //lightCamera.moveBackward(200);
     dl.setCamera(lightCamera);
@@ -401,12 +444,14 @@ function prepScene() {
     document.addEventListener("pointerlockchange", function(e) {
         if(document.pointerLockElement == canvas || document.mozPointerLockElement == canvas) {
             console.log("Pointer lock active");
+            paused = false;
             document.addEventListener("mousemove", cameraLook);
             document.addEventListener("keydown", keyPressed);
             document.addEventListener("keyup", keyReleased);
         }
         else {
             console.log("Pointer lock removed");
+            paused = true;
             document.removeEventListener("mousemove", cameraLook);
             document.removeEventListener("keydown", keyPressed);
             document.removeEventListener("keyup", keyReleased);
@@ -427,7 +472,7 @@ function drawScene(time) {
     camera.updatePlanes();
     
     gl.cullFace(gl.FRONT);
-    renderShadowMaps(1024, 1024);
+    renderShadowMaps(camera, 1024, 1024);
     gl.cullFace(gl.BACK);
     
     let sign = (camera.getPosition().z - water.getPosition().z) / Math.abs(camera.getPosition().z - water.getPosition().z);
@@ -489,9 +534,9 @@ function drawScene(time) {
             camera.setPosition(new vec3(cPos.x, cPos.y, heightAtCamera + 2));
             cameravVelocity = 0;
         }
-        if(keysPressed[KeyEvent.DOM_VK_SPACE] && cPos.z - heightAtCamera < 2.5) {
-            cameravAcc = 60;
-            setTimeout(function() {cameravAcc = 0;}, 100);
+        if(keysPressed[KeyEvent.DOM_VK_SPACE] && cPos.z - heightAtCamera < 3) {
+            cameravAcc = 200;
+            setTimeout(function() {cameravAcc = 0;}, 75);
         }
     }
     else {
@@ -522,6 +567,9 @@ function drawScene(time) {
     }
     else {
         gheld = false;
+    }
+    if(keysPressed[KeyEvent.DOM_VK_P]) {
+        paused = true;
     }
     
     water.setPosition(new vec3(terrain.getPosition().x, terrain.getPosition().y, terrain.getPosition().z + waterLevel));
@@ -587,7 +635,7 @@ function renderToTexture(width, height, query) {
     return { color, depth };
 }
 
-function renderShadowMaps(width, height) {
+function renderShadowMaps(camera, width, height) {
     for(let i=0; i<dirLights.length; i++) {        
         let sMap = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, sMap);
@@ -605,6 +653,7 @@ function renderShadowMaps(width, height) {
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
+        //dirLights[i].camera.bindCamera(terrainIntersection);
         dirLights[i].camera.updatePlanes();
         
         for(let j=0; j<gameObjects.length; j++) {
