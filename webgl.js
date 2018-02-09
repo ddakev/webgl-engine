@@ -191,7 +191,7 @@ var clipPlane;
 var waterLevel = 8;
 
 var gameObjects = [];
-var dirLights = [];
+var dirLight;
 var pointLights = [];
 var spotLights = [];
 var root;
@@ -211,8 +211,8 @@ var cameraLook = function(e) {
     let dx = e.movementX;
     let dy = e.movementY;
     camera.pitch(-360 * dy / 1000).yaw(360 * dx / 1000);
-    //dirLights[0].setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, camera.getDirection().z));
-    //dirLights[0].camera.setDirection(dirLights[0].getDirection());
+    //dirLight.setDirection(new vec3(camera.getDirection().x, camera.getDirection().y, camera.getDirection().z));
+    //dirLight.camera.setDirection(dirLight.getDirection());
 };
 
 var keyPressed = e => keysPressed[e.keyCode] = true;
@@ -330,8 +330,9 @@ function prepScene() {
     camera = new PerspectiveCamera({
         fov:    45,
         aRatio: gl.canvas.clientWidth / gl.canvas.clientHeight,
-        near:   0.1,
-        far:    2000
+        near:   1,
+        far:    2000,
+        cascades: 4
     });
     var light = new PointLight([0,0,0], {
         ambientIntensity:   0.15,
@@ -426,7 +427,7 @@ function prepScene() {
     //pointLights.push(light);
     
     
-    let dl = new DirectionalLight([1, 1, -1], {intensity: 2.7});
+    dirLight = new DirectionalLight([1, 1, -1], {intensity: 2.7});
     let lightCamera = new OrthographicCamera({
         left:  -10,
         right: 10,
@@ -436,10 +437,9 @@ function prepScene() {
         far:   400
     });
     //lightCamera.setPosition(plane.getPosition());
-    lightCamera.setDirection(dl.getDirection());
+    lightCamera.setDirection(dirLight.getDirection());
     //lightCamera.moveBackward(200);
-    dl.setCamera(lightCamera);
-    dirLights.push(dl);
+    dirLight.setCamera(lightCamera);
     
     document.addEventListener("pointerlockchange", function(e) {
         if(document.pointerLockElement == canvas || document.mozPointerLockElement == canvas) {
@@ -578,8 +578,8 @@ function drawScene(time) {
     /*cubeOrbit.applyTransformations(new mat4().rotate([-1, 2, 0], 0.5));
     orbitCube.applyTransformations(new mat4().xRotate(0.3).yRotate(0.3).zRotate(0.3));
     centerCube.applyTransformations(new mat4().yRotate(-0.2));*/
-    for(let i=0; i<dirLights.length; i++) {
-        gl.deleteTexture(dirLights[i].shadowMap);
+    for(let i=0; i<dirLight.shadowMapCascades.length; i++) {
+        gl.deleteTexture(dirLight.shadowMapCascades[i]);
     }
     gl.deleteTexture(reflection);
     gl.deleteTexture(refraction);
@@ -636,7 +636,8 @@ function renderToTexture(width, height, query) {
 }
 
 function renderShadowMaps(camera, width, height) {
-    for(let i=0; i<dirLights.length; i++) {        
+    for(let i=0; i<camera.cascadeSpheres.length; i++) {
+    //for(let i=0; i<=0; i++) {
         let sMap = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, sMap);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
@@ -644,25 +645,26 @@ function renderShadowMaps(camera, width, height) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        
+
         let fb = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, sMap, 0);
-        
+
         gl.viewport(0, 0, width, height);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        //dirLights[i].camera.bindCamera(terrainIntersection);
-        dirLights[i].camera.updatePlanes();
-        
+
+        dirLight.camera.bindCamera(camera.getCascadeBoundingSphere(i));
+        dirLight.camera.updatePlanes();
+
         for(let j=0; j<gameObjects.length; j++) {
-            gameObjects[j].drawShadow(gl, programs.shadow, dirLights[i].camera);
+            gameObjects[j].drawShadow(gl, programs.shadow, dirLight.camera);
         }
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.deleteFramebuffer(fb);
-        dirLights[i].shadowMap = sMap;
+        dirLight.shadowMapCascades[i] = sMap;
+        dirLight.viewProjectionCascades[i] = dirLight.camera.getViewProjectionMatrix();
     }
 }
 
@@ -967,14 +969,20 @@ function createUniformSetters(gl, program) {
                 };
                 break;
             case gl.FLOAT_MAT4:
-                return function(u) {
-                    gl.uniformMatrix4fv(loc, false, u);
-                };
+                if(isArray) {
+                    return function(u) {
+                        gl.uniformMatrix4fv(loc, false, u);
+                    };
+                }
+                else {
+                    return function(u) {
+                        gl.uniformMatrix4fv(loc, false, u);
+                    };
+                }
                 break;
             case gl.SAMPLER_2D: case gl.SAMPLER_CUBE:
                 if(isArray) {
                     let units = [];
-                    let textureUnit = 0;
                     for(let i=0; i<uniformInfo.size; i++) {
                         units.push(textureUnit++);
                     }

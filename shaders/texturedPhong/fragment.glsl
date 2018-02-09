@@ -18,8 +18,9 @@ struct DirectionalLight {
     float       ambientIntensity;
     float       specularIntensity;
     
-    sampler2D   shadowMap;
-    mat4        bModelViewProjection;
+    int         numCascades;
+    sampler2D   shadowMapCascades[4];
+    mat4        bModelViewProjections[4];
 };
 
 struct PointLight {
@@ -53,13 +54,12 @@ varying vec2                v_uv;
 varying vec3                v_normal;
 varying vec3                v_position;
 varying float               v_clipDistance;
-varying vec3                v_shadowPositions[5];
+varying vec3                v_shadowPositions[4];
 
 uniform vec3                u_viewWorldPosition;
-uniform int                 u_numDir;
 uniform int                 u_numPoint;
 uniform int                 u_numSpot;
-uniform DirectionalLight    dirLights[5];
+uniform DirectionalLight    dirLight;
 uniform PointLight          pointLights[10];
 uniform SpotLight           spotLights[5];
 uniform Material            material;
@@ -67,6 +67,7 @@ uniform sampler2D           u_offsets;
 uniform float               u_strataSize;
 
 const float offsetSize = 4.0;
+const float bias = 0.0;
 
 float random(vec4 seed4) {
     float dot_product = dot(seed4, vec4(12.9898,78.233,45.164,94.673));
@@ -82,7 +83,7 @@ float predictShadow(sampler2D shadowMap, vec3 uv) {
         float x = sqrt(v) * cos(2.0*M_PI*u);
         float y = sqrt(v) * sin(2.0*M_PI*u);
         
-        if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z)
+        if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z - bias)
             total -= 1.0 / offsetSize;
     }
     return total;
@@ -98,7 +99,7 @@ float stratSample(sampler2D shadowMap, vec3 uv, float prediction) {
             float x = sqrt(v) * cos(2.0*M_PI*u);
             float y = sqrt(v) * sin(2.0*M_PI*u);
 
-            if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z)
+            if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z - bias)
                 total -= 1.0 / (offsetSize * offsetSize);
         }
     }
@@ -112,8 +113,8 @@ void main() {
     vec3 normal = normalize(v_normal);
     vec3 viewDir = normalize(u_viewWorldPosition - v_position);
     
-    float visibility[5];
-    float bias = 0.0;
+    float visibility;
+    //float bias = 0.0;
     vec2 poissonDisk[4];
     poissonDisk[0] = vec2( -0.94201624, -0.39906216 );
     poissonDisk[1] = vec2( 0.94558609, -0.76890725 );
@@ -121,74 +122,37 @@ void main() {
     poissonDisk[3] = vec2( 0.34495938, 0.29387760 );
     
     float prediction;
-    if(u_numDir > 0) {
-        visibility[0] = 1.0;
-        if(v_shadowPositions[0].x >= 0.0 && v_shadowPositions[0].x <= 1.0 && v_shadowPositions[0].y >= 0.0 && v_shadowPositions[0].y <= 1.0) {
-            prediction = predictShadow(dirLights[0].shadowMap, v_shadowPositions[0]);
+    visibility = 1.0;
+    for(int i=0; i<4; i++) {
+        if(i >= dirLight.numCascades) break;
+        if(v_shadowPositions[i].x >= 0.0 && v_shadowPositions[i].x <= 1.0 && v_shadowPositions[i].y >= 0.0 && v_shadowPositions[i].y <= 1.0) {
+            prediction = predictShadow(dirLight.shadowMapCascades[i], v_shadowPositions[i]);
             if(prediction == 0.0 || prediction == 1.0) {
-                visibility[0] = prediction / 2.0 + 0.5;
+                visibility = prediction / 2.0 + 0.5;
             }
             else {
-                visibility[0] = stratSample(dirLights[0].shadowMap, v_shadowPositions[0], prediction) / 2.0 + 0.5;
+                visibility = stratSample(dirLight.shadowMapCascades[i], v_shadowPositions[i], prediction) / 2.0 + 0.5;
             }
-            /*if(texture2D(dirLights[0].shadowMap, v_shadowPositions[0].xy).r < v_shadowPositions[0].z - bias) {
-                visibility[0] = 0.5;
+            /*if(texture2D(dirLight.shadowMapCascades[i], v_shadowPositions[i].xy).r < v_shadowPositions[i].z - bias) {
+                visibility = 0.5;
             }*/
+            break;
             /*for(int i=0; i<4; i++) {
                 if(texture2D(dirLights[0].shadowMap, v_shadowPositions[0].xy + poissonDisk[i]/700.0).r < v_shadowPositions[0].z-bias)
                     visibility[0] = visibility[0] - 0.2;
             }*/
         }
-        if(u_numDir > 1) {
-            prediction = predictShadow(dirLights[1].shadowMap, v_shadowPositions[1]);
-            if(prediction == 0.0 || prediction == 1.0) {
-                visibility[1] = prediction / 2.0 + 0.5;
-            }
-            else {
-                visibility[1] = stratSample(dirLights[1].shadowMap, v_shadowPositions[1], prediction) / 2.0 + 0.5;
-            }
-            if(u_numDir > 2) {
-                prediction = predictShadow(dirLights[2].shadowMap, v_shadowPositions[2]);
-                if(prediction == 0.0 || prediction == 1.0) {
-                    visibility[2] = prediction / 2.0 + 0.5;
-                }
-                else {
-                    visibility[2] = stratSample(dirLights[2].shadowMap, v_shadowPositions[2], prediction) / 2.0 + 0.5;
-                }
-                if(u_numDir > 3) {
-                    prediction = predictShadow(dirLights[3].shadowMap, v_shadowPositions[3]);
-                    if(prediction == 0.0 || prediction == 1.0) {
-                        visibility[3] = prediction / 2.0 + 0.5;
-                    }
-                    else {
-                        visibility[3] = stratSample(dirLights[3].shadowMap, v_shadowPositions[3], prediction) / 2.0 + 0.5;
-                    }
-                    if(u_numDir > 4) {
-                        prediction = predictShadow(dirLights[1].shadowMap, v_shadowPositions[4]);
-                        if(prediction == 0.0 || prediction == 1.0) {
-                            visibility[4] = prediction / 2.0 + 0.5;
-                        }
-                        else {
-                            visibility[4] = stratSample(dirLights[4].shadowMap, v_shadowPositions[4], prediction) / 2.0 + 0.5;
-                        }
-                    }
-                }
-            }
-        }
     }
     
-    for(int i=0; i<5; i++) {
-        if(i >= u_numDir) break;
-        vec3 lightDir = normalize(-dirLights[i].direction);
-        float diff = max(dot(normal, lightDir), 0.0);
-        vec3 reflectDir = reflect(-lightDir, normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-        
-        vec3 ambient = dirLights[i].ambientIntensity * dirLights[i].color * vec3(color);
-        vec3 diffuse = visibility[i] * dirLights[i].intensity * dirLights[i].color * diff * vec3(color);
-        vec3 specular = visibility[i] * dirLights[i].specularIntensity * spec * vec3(color);
-        gl_FragColor = gl_FragColor + vec4(ambient + diffuse + specular, 0.0);
-    }
+    vec3 lightDir = normalize(-dirLight.direction);
+    float diff = max(dot(normal, lightDir), 0.0);
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    vec3 ambient = dirLight.ambientIntensity * dirLight.color * vec3(color);
+    vec3 diffuse = visibility * dirLight.intensity * dirLight.color * diff * vec3(color);
+    vec3 specular = visibility * dirLight.specularIntensity * spec * vec3(color);
+    gl_FragColor = gl_FragColor + vec4(ambient + diffuse + specular, 0.0);
     
     for(int i=0; i<10; i++) {
         if(i >= u_numPoint) break;

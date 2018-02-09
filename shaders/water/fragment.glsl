@@ -9,8 +9,9 @@ struct DirectionalLight {
     float       ambientIntensity;
     float       specularIntensity;
     
-    sampler2D   shadowMap;
-    mat4        bModelViewProjection;
+    int         numCascades;
+    sampler2D   shadowMapCascades[4];
+    mat4        bModelViewProjections[4];
 };
 
 uniform vec3                u_color;
@@ -24,14 +25,13 @@ uniform float               u_shininess;
 uniform float               u_reflectivity;
 uniform float               u_near;
 uniform float               u_far;
-uniform int                 u_numDir;
-uniform DirectionalLight    dirLights[5];
+uniform DirectionalLight    dirLight;
 
 varying vec4                v_clipSpace;
 varying vec3                v_toCamera;
 varying vec3                v_toCameraTangent;
 varying vec2                v_texCoords;
-varying vec3                v_dirLightDirection[5];
+varying vec3                v_dirLightDirection;
 
 const   float   waveStrength = 0.02;
 
@@ -64,14 +64,12 @@ void main() {
         refractFactor = clamp(refractFactor, 0.001, 0.999);
         gl_FragColor = mix(mix(reflectColor, refractColor, refractFactor), vec4(0.0, 0.3, 0.5, 1.0), 0.2);
 
-        for(int i=0; i<5; i++) {
-            if(i >= u_numDir) break;
-            vec3 reflectedLight = reflect(normalize(-v_dirLightDirection[i]), normal);
-            float spec = pow(max(dot(reflectedLight, normalize(v_toCameraTangent)), 0.0), u_shininess);
+        vec3 reflectedLight = reflect(normalize(-v_dirLightDirection), normal);
+        float spec = pow(max(dot(reflectedLight, normalize(v_toCameraTangent)), 0.0), u_shininess);
 
-            vec3 specular = dirLights[i].color * spec * u_reflectivity * clamp(waterDepth/5.0, 0.0, 1.0);
-            gl_FragColor = gl_FragColor + vec4(specular, 0.0);
-        }
+        vec3 specular = dirLight.color * spec * u_reflectivity * clamp(waterDepth/5.0, 0.0, 1.0);
+        gl_FragColor = gl_FragColor + vec4(specular, 0.0);
+        
         gl_FragColor = gl_FragColor * clamp(waterDepth/3.0, 0.0, 1.0);
         gl_FragColor.a = clamp(waterDepth/3.0, 0.0, 1.0);
     }
