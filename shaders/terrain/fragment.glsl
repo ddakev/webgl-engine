@@ -56,7 +56,7 @@ float random(vec4 seed4) {
     return fract(sin(dot_product) * 43758.5453);
 }
 
-float predictShadow(sampler2D shadowMap, vec3 uv) {
+float predictShadow(sampler2D shadowMap, vec3 uv, float stratSize) {
     float total = 1.0;
     for(float i=0.0; i<offsetSize; i++) {
         vec2 jit = texture2D(u_offsets, vec2(i/offsetSize, (offsetSize-1.0)/offsetSize)).xy;
@@ -65,13 +65,13 @@ float predictShadow(sampler2D shadowMap, vec3 uv) {
         float x = sqrt(v) * cos(2.0*M_PI*u);
         float y = sqrt(v) * sin(2.0*M_PI*u);
         
-        if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z)
+        if(texture2D(shadowMap, vec2(uv.x + x * stratSize, uv.y + y * stratSize)).r < uv.z)
             total -= 1.0 / offsetSize;
     }
     return total;
 }
 
-float stratSample(sampler2D shadowMap, vec3 uv, float prediction) {
+float stratSample(sampler2D shadowMap, vec3 uv, float prediction, float stratSize) {
     float total = 1.0 - (1.0 - prediction) / offsetSize;
     for(float i=0.0; i<offsetSize; i++) {
         for(float j=0.0; j<offsetSize-1.0; j++) {
@@ -81,7 +81,7 @@ float stratSample(sampler2D shadowMap, vec3 uv, float prediction) {
             float x = sqrt(v) * cos(2.0*M_PI*u);
             float y = sqrt(v) * sin(2.0*M_PI*u);
 
-            if(texture2D(shadowMap, vec2(uv.x + x * u_strataSize, uv.y + y * u_strataSize)).r < uv.z)
+            if(texture2D(shadowMap, vec2(uv.x + x * stratSize, uv.y + y * stratSize)).r < uv.z)
                 total -= 1.0 / (offsetSize * offsetSize);
         }
     }
@@ -142,12 +142,12 @@ void main() {
     for(int i=0; i<4; i++) {
         if(i >= dirLight.numCascades) break;
         if(v_shadowPositions[i].x >= 0.0 && v_shadowPositions[i].x <= 1.0 && v_shadowPositions[i].y >= 0.0 && v_shadowPositions[i].y <= 1.0) {
-            prediction = predictShadow(dirLight.shadowMapCascades[i], v_shadowPositions[i]);
+            prediction = predictShadow(dirLight.shadowMapCascades[i], v_shadowPositions[i], float(u_strataSize)/pow(4.0, float(i)));
             if(prediction == 0.0 || prediction == 1.0) {
                 visibility = prediction / 2.0 + 0.5;
             }
             else {
-                visibility = stratSample(dirLight.shadowMapCascades[i], v_shadowPositions[i], prediction) / 2.0 + 0.5;
+                visibility = stratSample(dirLight.shadowMapCascades[i], v_shadowPositions[i], prediction, float(u_strataSize)/pow(4.0, float(i))) / 2.0 + 0.5;
             }
             /*if(texture2D(dirLight.shadowMapCascades[i], v_shadowPositions[i].xy).r < v_shadowPositions[i].z - bias) {
                 visibility = 0.5;

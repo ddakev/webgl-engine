@@ -472,7 +472,7 @@ function drawScene(time) {
     camera.updatePlanes();
     
     gl.cullFace(gl.FRONT);
-    renderShadowMaps(camera, 1024, 1024);
+    renderShadowMaps(camera, 2048, 2048);
     gl.cullFace(gl.BACK);
     
     let sign = (camera.getPosition().z - water.getPosition().z) / Math.abs(camera.getPosition().z - water.getPosition().z);
@@ -637,7 +637,6 @@ function renderToTexture(width, height, query) {
 
 function renderShadowMaps(camera, width, height) {
     for(let i=0; i<camera.cascadeSpheres.length; i++) {
-    //for(let i=0; i<=0; i++) {
         let sMap = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, sMap);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
